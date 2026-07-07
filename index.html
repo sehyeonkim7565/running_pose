@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>running_pose</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --orange: #FF5722;
+      --orange-light: #FF7043;
+      --dark: #0D0D0D;
+      --dark2: #1A1A1A;
+      --dark3: #242424;
+      --gray: #888;
+      --light: #F5F5F5;
+      --white: #FFFFFF;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--dark);
+      color: var(--white);
+      overflow-x: hidden;
+    }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 60px;
+      background: rgba(13,13,13,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--orange); }
+
+    nav ul {
+      display: flex;
+      gap: 36px;
+      list-style: none;
+    }
+    nav ul a {
+      text-decoration: none;
+      color: var(--gray);
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    nav ul a:hover { color: var(--white); }
+
+    .nav-cta {
+      background: var(--orange);
+      color: var(--white) !important;
+      padding: 10px 22px;
+      border-radius: 8px;
+      font-weight: 600 !important;
+      transition: background 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--orange-light) !important; color: var(--white) !important; }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 20px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      width: 700px; height: 700px;
+      background: radial-gradient(circle, rgba(255,87,34,0.18) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -55%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,87,34,0.12);
+      border: 1px solid rgba(255,87,34,0.3);
+      color: var(--orange);
+      padding: 6px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 28px;
+      letter-spacing: 0.5px;
+    }
+
+    .hero h1 {
+      font-size: clamp(42px, 7vw, 80px);
+      font-weight: 900;
+      line-height: 1.05;
+      letter-spacing: -2px;
+      max-width: 880px;
+      margin-bottom: 24px;
+    }
+
+    .hero h1 .highlight { color: var(--orange); }
+
+    .hero p {
+      font-size: clamp(16px, 2vw, 20px);
+      color: var(--gray);
+      max-width: 560px;
+      line-height: 1.7;
+      margin-bottom: 44px;
+    }
+
+    .hero-btns {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      background: var(--orange);
+      color: var(--white);
+      padding: 16px 36px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-primary:hover { background: var(--orange-light); transform: translateY(-1px); }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.07);
+      color: var(--white);
+      padding: 16px 36px;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.12);
+      transition: background 0.2s, transform 0.15s;
+    }
+    .btn-secondary:hover { background: rgba(255,255,255,0.12); transform: translateY(-1px); }
+
+    /* STATS BAR */
+    .stats {
+      display: flex;
+      justify-content: center;
+      gap: 60px;
+      flex-wrap: wrap;
+      padding: 50px 40px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      background: var(--dark2);
+    }
+
+    .stat { text-align: center; }
+    .stat .num {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--orange);
+      display: block;
+    }
+    .stat .label {
+      font-size: 13px;
+      color: var(--gray);
+      margin-top: 4px;
+    }
+
+    /* FEATURES */
+    section { padding: 100px 60px; max-width: 1200px; margin: 0 auto; }
+
+    .section-label {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: var(--orange);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(30px, 4vw, 46px);
+      font-weight: 800;
+      letter-spacing: -1px;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 17px;
+      color: var(--gray);
+      max-width: 500px;
+      line-height: 1.6;
+      margin-bottom: 60px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--dark2);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 36px 32px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover {
+      border-color: rgba(255,87,34,0.4);
+      transform: translateY(-3px);
+    }
+
+    .feature-icon {
+      font-size: 36px;
+      margin-bottom: 20px;
+    }
+
+    .feature-card h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .feature-card p {
+      font-size: 15px;
+      color: var(--gray);
+      line-height: 1.65;
+    }
+
+    /* HOW IT WORKS */
+    .how-section {
+      background: var(--dark2);
+      padding: 100px 0;
+    }
+
+    .how-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 60px;
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 0;
+      margin-top: 60px;
+    }
+
+    .step {
+      position: relative;
+      padding: 0 40px 0 0;
+    }
+
+    .step:not(:last-child)::after {
+      content: '→';
+      position: absolute;
+      right: 10px;
+      top: 28px;
+      font-size: 22px;
+      color: rgba(255,87,34,0.35);
+    }
+
+    .step-num {
+      width: 52px; height: 52px;
+      background: rgba(255,87,34,0.12);
+      border: 1px solid rgba(255,87,34,0.3);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      font-weight: 800;
+      color: var(--orange);
+      margin-bottom: 20px;
+    }
+
+    .step h3 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .step p {
+      font-size: 14px;
+      color: var(--gray);
+      line-height: 1.65;
+    }
+
+    /* FOR WHO */
+    .audience-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      margin-top: 60px;
+    }
+
+    .audience-card {
+      background: var(--dark2);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 16px;
+      padding: 40px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .audience-card .icon { font-size: 40px; }
+    .audience-card h3 { font-size: 22px; font-weight: 700; }
+    .audience-card p { font-size: 15px; color: var(--gray); line-height: 1.65; }
+
+    .tag-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .tag {
+      background: rgba(255,87,34,0.1);
+      border: 1px solid rgba(255,87,34,0.25);
+      color: var(--orange);
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    /* CTA */
+    .cta-section {
+      text-align: center;
+      padding: 120px 20px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(255,87,34,0.14) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .cta-section h2 {
+      font-size: clamp(32px, 5vw, 56px);
+      font-weight: 900;
+      letter-spacing: -1.5px;
+      margin-bottom: 18px;
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-section p {
+      font-size: 18px;
+      color: var(--gray);
+      margin-bottom: 44px;
+    }
+
+    .email-form {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .email-form input {
+      padding: 16px 24px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.06);
+      color: var(--white);
+      font-size: 15px;
+      width: 300px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .email-form input::placeholder { color: var(--gray); }
+    .email-form input:focus { border-color: var(--orange); }
+
+    .email-form button {
+      background: var(--orange);
+      color: var(--white);
+      border: none;
+      padding: 16px 30px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .email-form button:hover { background: var(--orange-light); }
+
+    /* FOOTER */
+    footer {
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 40px 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    footer .logo { font-size: 18px; }
+    footer p { font-size: 13px; color: var(--gray); }
+
+    @media (max-width: 768px) {
+      nav { padding: 16px 24px; }
+      nav ul { display: none; }
+      section { padding: 70px 24px; }
+      .how-inner { padding: 0 24px; }
+      footer { padding: 30px 24px; }
+      .audience-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: 1fr; }
+      .step:not(:last-child)::after { content: '↓'; right: auto; left: 14px; top: auto; bottom: -24px; }
+      .step { padding: 0 0 48px 0; }
+      .stats { gap: 36px; padding: 40px 24px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="logo">Run<span>Pose</span></div>
+    <ul>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how">How it works</a></li>
+      <li><a href="#who">For who</a></li>
+      <li><a href="#waitlist" class="nav-cta">Join Waitlist</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">🏃 AI-Powered Running Coach</div>
+    <h1>Run Faster.<br/>Run <span class="highlight">Smarter.</span></h1>
+    <p>Real-time pose detection and AI coaching that analyzes your running form, tracks your crew, and keeps everyone on pace — all from your phone.</p>
+    <div class="hero-btns">
+      <a href="#waitlist" class="btn-primary">Join the Waitlist</a>
+      <a href="#how" class="btn-secondary">See how it works</a>
+    </div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat">
+      <span class="num">30+</span>
+      <span class="label">Pose Keypoints Tracked</span>
+    </div>
+    <div class="stat">
+      <span class="num">60fps</span>
+      <span class="label">Real-Time Analysis</span>
+    </div>
+    <div class="stat">
+      <span class="num">∞</span>
+      <span class="label">Crew Members Supported</span>
+    </div>
+    <div class="stat">
+      <span class="num">AI</span>
+      <span class="label">Personalized Coaching</span>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="section-label">Features</div>
+    <h2 class="section-title">Everything your run needs</h2>
+    <p class="section-sub">From solo training to crew runs, RunPose gives you the tools to improve every stride.</p>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🦾</div>
+        <h3>Real-Time Pose Detection</h3>
+        <p>AI tracks 30+ body keypoints every frame — cadence, stride length, arm swing, foot strike — as you run.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Form Analysis</h3>
+        <p>Get instant feedback on posture, lean angle, knee lift, and ground contact time. Know what to fix before injury strikes.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🎙️</div>
+        <h3>AI Coaching</h3>
+        <p>Voice-guided coaching adapts to your form in real time. Like having a personal coach running beside you.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⏱️</div>
+        <h3>Pace Making</h3>
+        <p>Set your target pace, and RunPose keeps you there — with alerts when you drift too fast or too slow.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">👥</div>
+        <h3>Crew Sync</h3>
+        <p>Connect your running crew. See everyone's pace, form score, and position on a live map — run together, even apart.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3>Progress Tracking</h3>
+        <p>Session-by-session history shows how your form and speed evolve. Celebrate the gains, target the gaps.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <div class="how-section" id="how">
+    <div class="how-inner">
+      <div class="section-label">How it works</div>
+      <h2 class="section-title">Up and running in seconds</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h3>Set your goal</h3>
+          <p>Choose a target pace, select solo or crew mode, and pick your coaching intensity.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h3>Point your camera</h3>
+          <p>Mount your phone on a tripod or use a crew member's phone — RunPose detects your pose instantly.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h3>Run & get coached</h3>
+          <p>Receive real-time voice cues on your form, alerts on pace drift, and live crew updates.</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h3>Review & improve</h3>
+          <p>After your run, dive into detailed analytics, form replays, and personalized tips for next time.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOR WHO -->
+  <section id="who">
+    <div class="section-label">For who</div>
+    <h2 class="section-title">Built for every runner</h2>
+    <p class="section-sub">Whether you run solo or with a crew, RunPose adapts to how you train.</p>
+    <div class="audience-grid">
+      <div class="audience-card">
+        <div class="icon">🏃</div>
+        <h3>Solo Runners</h3>
+        <p>Train smarter with an AI coach that watches your every stride, catches bad habits early, and pushes you toward your personal best.</p>
+        <div class="tag-list">
+          <span class="tag">Form coaching</span>
+          <span class="tag">Pace alerts</span>
+          <span class="tag">Injury prevention</span>
+        </div>
+      </div>
+      <div class="audience-card">
+        <div class="icon">🫂</div>
+        <h3>Running Crews</h3>
+        <p>Keep the whole crew connected. Sync paces, share form scores, and motivate each other with live crew stats — running together just got smarter.</p>
+        <div class="tag-list">
+          <span class="tag">Crew sync</span>
+          <span class="tag">Live map</span>
+          <span class="tag">Group pace</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta-section" id="waitlist">
+    <h2>Be first to run with AI</h2>
+    <p>Join the waitlist. Early runners get free access at launch.</p>
+    <form class="email-form" onsubmit="handleSubmit(event)">
+      <input type="email" placeholder="your@email.com" required />
+      <button type="submit">Get Early Access</button>
+    </form>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="logo">Run<span>Pose</span></div>
+    <p>© 2026 RunPose. All rights reserved.</p>
+  </footer>
+
+  <script>
+    function handleSubmit(e) {
+      e.preventDefault();
+      const btn = e.target.querySelector('button');
+      btn.textContent = '✓ You\'re on the list!';
+      btn.style.background = '#2e7d32';
+      e.target.querySelector('input').disabled = true;
+      btn.disabled = true;
+    }
+
+    // smooth scroll
+    document.querySelectorAll('a[href^="#"]').forEach(a => {
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        document.querySelector(a.getAttribute('href'))?.scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+  </script>
+
+</body>
+</html>
