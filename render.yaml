@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: running-pose
+    runtime: static
+    buildCommand: ""
+    staticPublishPath: .
