@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AgriSage — 작물 진단 데모</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  :root {
+    --green:#2e7d32; --green-light:#4caf50; --bg:#f6f8f4; --card:#ffffff;
+    --text:#1b1b1b; --gray:#666; --warn:#c62828; --warn-bg:#fdecea;
+    --safe-bg:#eaf6ec;
+  }
+  body { font-family:'Segoe UI', system-ui, sans-serif; background:var(--bg); color:var(--text); padding:0 0 60px; }
+  header { background:var(--green); color:#fff; padding:24px 32px; }
+  header h1 { font-size:22px; font-weight:800; }
+  header p { font-size:13px; opacity:0.9; margin-top:4px; }
+  main { max-width:760px; margin:24px auto; padding:0 16px; display:flex; flex-direction:column; gap:20px; }
+  .card { background:var(--card); border-radius:14px; padding:24px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+  .card h2 { font-size:16px; margin-bottom:14px; color:var(--green); }
+  label { font-size:13px; font-weight:600; color:var(--gray); display:block; margin-bottom:6px; }
+  input[type=file], input[type=date] {
+    width:100%; padding:10px; border:1px solid #ddd; border-radius:8px; font-size:14px; margin-bottom:14px;
+  }
+  .row { display:flex; gap:16px; align-items:center; margin-bottom:14px; }
+  button {
+    background:var(--green); color:#fff; border:none; padding:12px 22px; border-radius:8px;
+    font-size:14px; font-weight:700; cursor:pointer;
+  }
+  button:hover { background:var(--green-light); }
+  button:disabled { background:#aaa; cursor:not-allowed; }
+  #preview { max-width:100%; max-height:260px; border-radius:10px; margin-bottom:14px; display:none; }
+  .badge { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+  .badge.healthy { background:var(--safe-bg); color:var(--green); }
+  .badge.disease { background:var(--warn-bg); color:var(--warn); }
+  .badge.low { background:#fff3e0; color:#e65100; }
+  .pred-row { display:flex; justify-content:space-between; font-size:13px; padding:6px 0; border-bottom:1px solid #eee; }
+  .explain-block p { font-size:14px; line-height:1.6; margin-bottom:8px; }
+  .explain-block ul { margin:6px 0 0 18px; font-size:14px; line-height:1.6; }
+  table { width:100%; border-collapse:collapse; font-size:13px; margin-top:8px; }
+  th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #eee; }
+  .pls-safe { color:var(--green); font-weight:700; }
+  .pls-violation { color:var(--warn); font-weight:700; }
+  .pls-invalid { color:#e65100; font-weight:700; }
+  #followupSection { display:none; }
+  .muted { color:var(--gray); font-size:12px; }
+  .spinner { font-size:13px; color:var(--gray); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>🌱 AgriSage — 로컬 데모</h1>
+  <p>사진 한 장으로 진단 → 설명 → 방제 추천 → PLS 안전 체크 → 사후관리까지</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>1. 작물 잎 사진 업로드</h2>
+    <label>이미지 파일 (지원 작물: 사과, 감자, 토마토)</label>
+    <input type="file" id="imageInput" accept="image/*" />
+    <img id="preview" />
+
+    <label>예상 수확 예정일 (선택)</label>
+    <input type="date" id="harvestDate" />
+
+    <div class="row">
+      <label style="margin:0; display:flex; align-items:center; gap:6px;">
+        <input type="checkbox" id="organicOnly" style="width:auto; margin:0;" /> 유기농 제품만 추천
+      </label>
+    </div>
+
+    <button id="diagnoseBtn">진단 실행</button>
+    <span class="spinner" id="spinner"></span>
+  </div>
+
+  <div class="card" id="resultCard" style="display:none;">
+    <h2>2. 진단 결과</h2>
+    <div id="diagnosisResult"></div>
+  </div>
+
+  <div class="card" id="explainCard" style="display:none;">
+    <h2>3. 결과 설명</h2>
+    <div id="explainResult" class="explain-block"></div>
+  </div>
+
+  <div class="card" id="recommendCard" style="display:none;">
+    <h2>4. 맞춤형 방제 추천 &amp; PLS 안전기준 체크</h2>
+    <div id="recommendResult"></div>
+  </div>
+
+  <div class="card" id="followupSection">
+    <h2>5. 사후관리</h2>
+    <p class="muted" id="followupInfo"></p>
+    <label style="margin-top:10px;">N일 후 재사진 업로드 (데모: 즉시 업로드 가능)</label>
+    <input type="file" id="followupImage" accept="image/*" />
+    <button id="followupBtn">사후 확인 제출</button>
+    <div id="followupResult" style="margin-top:12px;"></div>
+  </div>
+</main>
+
+<script>
+const API = "";
+let currentCaseId = null;
+
+document.getElementById("imageInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const preview = document.getElementById("preview");
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = "block";
+});
+
+document.getElementById("diagnoseBtn").addEventListener("click", async () => {
+  const fileInput = document.getElementById("imageInput");
+  if (!fileInput.files[0]) { alert("이미지를 먼저 업로드하세요."); return; }
+
+  const spinner = document.getElementById("spinner");
+  spinner.textContent = "분석 중...";
+  document.getElementById("diagnoseBtn").disabled = true;
+
+  const fd = new FormData();
+  fd.append("image", fileInput.files[0]);
+  const harvestDate = document.getElementById("harvestDate").value;
+  if (harvestDate) fd.append("expected_harvest_date", harvestDate);
+  fd.append("organic_only", document.getElementById("organicOnly").checked);
+
+  try {
+    const res = await fetch(`${API}/api/pipeline`, { method: "POST", body: fd });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || "요청 실패");
+    }
+    const data = await res.json();
+    renderDiagnosis(data);
+    renderExplanation(data.explanation);
+    renderRecommendation(data.recommendation, data.pls_results, data.diagnosis);
+    renderFollowup(data.followup_case);
+  } catch (e) {
+    alert("오류: " + e.message);
+  } finally {
+    spinner.textContent = "";
+    document.getElementById("diagnoseBtn").disabled = false;
+  }
+});
+
+function renderDiagnosis(data) {
+  const d = data.diagnosis;
+  const card = document.getElementById("resultCard");
+  card.style.display = "block";
+  const badgeClass = d.is_healthy ? "healthy" : "disease";
+  const badgeText = d.is_healthy ? "건강" : "병징 감지";
+  let lowConfHtml = d.low_confidence_warning
+    ? `<span class="badge low">⚠ 낮은 신뢰도 — 재촬영 또는 전문가 확인 권장</span>`
+    : "";
+
+  let predRows = data.predictions.map(p =>
+    `<div class="pred-row"><span>${p.class_name}</span><span>${(p.confidence*100).toFixed(1)}%</span></div>`
+  ).join("");
+
+  document.getElementById("diagnosisResult").innerHTML = `
+    <p><b>${d.crop}</b> — ${d.disease_name}
+      <span class="badge ${badgeClass}">${badgeText}</span> ${lowConfHtml}
+    </p>
+    <p class="muted">신뢰도: ${(d.confidence*100).toFixed(1)}%</p>
+    <div style="margin-top:10px;"><b class="muted">Top-3 예측</b>${predRows}</div>
+  `;
+}
+
+function renderExplanation(exp) {
+  const card = document.getElementById("explainCard");
+  card.style.display = "block";
+  const actions = (exp.recommended_actions || []).map(a => `<li>${a}</li>`).join("");
+  document.getElementById("explainResult").innerHTML = `
+    <p><b>진단 요약</b><br/>${exp.diagnosis_summary}</p>
+    <p><b>병의 특징</b><br/>${exp.symptoms}</p>
+    <p><b>발생 원인</b><br/>${exp.causes}</p>
+    <p><b>추천 대응법</b></p>
+    <ul>${actions}</ul>
+    <p class="muted">설명 생성 방식: ${exp.source === "llm" ? "Claude API" : "템플릿(오프라인)"}</p>
+  `;
+}
+
+function renderRecommendation(rec, pls, diagnosis) {
+  const card = document.getElementById("recommendCard");
+  if (diagnosis.is_healthy || !rec) {
+    card.style.display = "none";
+    return;
+  }
+  card.style.display = "block";
+  const rows = (pls || rec.products.map(p => ({...p, pls: null}))).map(p => {
+    let plsCell = "예상 수확일 미입력";
+    if (p.pls) {
+      const cls = p.pls.status === "safe" ? "pls-safe" : p.pls.status === "violation" ? "pls-violation" : "pls-invalid";
+      plsCell = `<span class="${cls}">${p.pls.message}</span>`;
+    }
+    return `<tr>
+      <td>${p.product_name}${p.organic_allowed ? " 🌿" : ""}</td>
+      <td>${p.active_ingredient}</td>
+      <td>${p.phi_days}일</td>
+      <td>${plsCell}</td>
+    </tr>`;
+  }).join("");
+
+  document.getElementById("recommendResult").innerHTML = `
+    <table>
+      <thead><tr><th>제품명</th><th>유효성분</th><th>안전사용기간</th><th>PLS 체크</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="muted" style="margin-top:8px;">🌿 = 유기농 인증 재배지 사용 가능. 본 데모의 농약 DB는 예시 데이터이며 실제 등록 정보와 다를 수 있습니다.</p>
+  `;
+}
+
+function renderFollowup(caseData) {
+  const section = document.getElementById("followupSection");
+  if (!caseData) { section.style.display = "none"; return; }
+  section.style.display = "block";
+  currentCaseId = caseData.case_id;
+  document.getElementById("followupInfo").textContent =
+    `case ${caseData.case_id} — ${caseData.followup_due}까지 재확인 필요 (데모에서는 지금 바로 업로드 가능)`;
+  document.getElementById("followupResult").innerHTML = "";
+}
+
+document.getElementById("followupBtn").addEventListener("click", async () => {
+  const fileInput = document.getElementById("followupImage");
+  if (!fileInput.files[0]) { alert("재사진을 업로드하세요."); return; }
+  if (!currentCaseId) { alert("먼저 진단을 실행하세요."); return; }
+
+  const fd = new FormData();
+  fd.append("image", fileInput.files[0]);
+  const res = await fetch(`${API}/api/followup/${currentCaseId}`, { method: "POST", body: fd });
+  const data = await res.json();
+  if (!res.ok) { alert("오류: " + (data.detail || "요청 실패")); return; }
+
+  const r = data.followup_result;
+  const cls = r.verdict === "improved" ? "pls-safe" : "pls-violation";
+  document.getElementById("followupResult").innerHTML =
+    `<p class="${cls}">${r.message}</p><p class="muted">재분석 결과: ${r.new_prediction.class_name} (${(r.new_prediction.confidence*100).toFixed(1)}%)</p>`;
+});
+</script>
+
+</body>
+</html>

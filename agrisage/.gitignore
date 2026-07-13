@@ -1,0 +1,6 @@
+backend/.venv/
+__pycache__/
+*.pyc
+data/dataset/
+data/split/
+backend/model/best_model.pt
