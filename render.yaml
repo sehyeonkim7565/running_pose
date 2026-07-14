@@ -1,6 +1,12 @@
 services:
   - type: web
     name: running-pose
-    runtime: static
-    buildCommand: ""
-    staticPublishPath: .
+    runtime: python
+    rootDir: agrisage/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
