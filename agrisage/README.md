@@ -42,6 +42,19 @@ export ANTHROPIC_API_KEY=sk-ant-...
 
 키가 없으면 자동으로 템플릿 기반 설명으로 동작합니다 (오프라인 테스트 가능).
 
+질병-농약 매핑(FR-3)과 사후관리 케이스(FR-5)를 Postgres에 영속 저장하려면
+서버 실행 전 `DATABASE_URL`을 설정하세요:
+
+```bash
+export DATABASE_URL=postgresql://user:password@host/dbname
+
+cd agrisage/backend
+python3 db/seed.py   # 스키마 생성 + pesticide_db.json 데이터 적재 (최초 1회)
+```
+
+`DATABASE_URL`이 없으면 자동으로 `pesticide_db.json` + 인메모리 저장소로 동작합니다
+(오프라인 데모 가능, 서버 재시작 시 사후관리 케이스는 초기화됨).
+
 ## 데이터셋 준비 (최초 1회)
 
 원본 이미지(1,120장)와 학습된 가중치(`best_model.pt`)는 저장소 용량 문제로
