@@ -44,7 +44,18 @@
   .pls-invalid { color:#e65100; font-weight:700; }
   #followupSection { display:none; }
   .muted { color:var(--gray); font-size:12px; }
-  .spinner { font-size:13px; color:var(--gray); }
+  .spinner { font-size:13px; color:var(--gray); display:inline-flex; align-items:center; gap:8px; }
+  .spinner-icon {
+    width:14px; height:14px; border:2px solid #ccc; border-top-color:var(--green);
+    border-radius:50%; display:none; animation:spin 0.8s linear infinite;
+  }
+  .spinner-icon.active { display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .error-banner {
+    display:none; background:var(--warn-bg); color:var(--warn); border-radius:8px;
+    padding:12px 14px; font-size:13px; margin-bottom:14px; line-height:1.5;
+  }
+  .error-banner.show { display:block; }
 </style>
 </head>
 <body>
@@ -70,8 +81,10 @@
       </label>
     </div>
 
+    <div class="error-banner" id="errorBanner"></div>
+
     <button id="diagnoseBtn">진단 실행</button>
-    <span class="spinner" id="spinner"></span>
+    <span class="spinner" id="spinner"><span class="spinner-icon" id="spinnerIcon"></span><span id="spinnerText"></span></span>
   </div>
 
   <div class="card" id="resultCard" style="display:none;">
@@ -111,13 +124,38 @@ document.getElementById("imageInput").addEventListener("change", (e) => {
   preview.style.display = "block";
 });
 
+const REQUEST_TIMEOUT_MS = 45000;
+const SLOW_HINT_MS = 8000;
+
+function setErrorBanner(message) {
+  const banner = document.getElementById("errorBanner");
+  if (!message) {
+    banner.classList.remove("show");
+    banner.textContent = "";
+    return;
+  }
+  banner.textContent = message;
+  banner.classList.add("show");
+}
+
+function setLoading(isLoading, text) {
+  const btn = document.getElementById("diagnoseBtn");
+  const icon = document.getElementById("spinnerIcon");
+  const label = document.getElementById("spinnerText");
+  btn.disabled = isLoading;
+  document.getElementById("imageInput").disabled = isLoading;
+  document.getElementById("harvestDate").disabled = isLoading;
+  document.getElementById("organicOnly").disabled = isLoading;
+  icon.classList.toggle("active", isLoading);
+  label.textContent = isLoading ? (text || "분석 중...") : "";
+}
+
 document.getElementById("diagnoseBtn").addEventListener("click", async () => {
   const fileInput = document.getElementById("imageInput");
   if (!fileInput.files[0]) { alert("이미지를 먼저 업로드하세요."); return; }
 
-  const spinner = document.getElementById("spinner");
-  spinner.textContent = "분석 중...";
-  document.getElementById("diagnoseBtn").disabled = true;
+  setErrorBanner(null);
+  setLoading(true, "분석 중...");
 
   const fd = new FormData();
   fd.append("image", fileInput.files[0]);
@@ -125,11 +163,24 @@ document.getElementById("diagnoseBtn").addEventListener("click", async () => {
   if (harvestDate) fd.append("expected_harvest_date", harvestDate);
   fd.append("organic_only", document.getElementById("organicOnly").checked);
 
+  const controller = new AbortController();
+  const slowHintTimer = setTimeout(() => {
+    setLoading(true, "모델 응답이 지연되고 있습니다. 잠시만 기다려주세요...");
+  }, SLOW_HINT_MS);
+  const abortTimer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
   try {
-    const res = await fetch(`${API}/api/pipeline`, { method: "POST", body: fd });
+    const res = await fetch(`${API}/api/pipeline`, { method: "POST", body: fd, signal: controller.signal });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || "요청 실패");
+      let detail = "요청 실패";
+      try { detail = (await res.json()).detail || detail; } catch (_) {}
+      if (res.status === 504) {
+        throw new Error(`모델 서버 응답이 너무 늦어 시간 초과되었습니다. 잠시 후 다시 시도해주세요. (${detail})`);
+      }
+      if (res.status === 502) {
+        throw new Error(`모델 서버 호출에 실패했습니다. 잠시 후 다시 시도해주세요. (${detail})`);
+      }
+      throw new Error(detail);
     }
     const data = await res.json();
     renderDiagnosis(data);
@@ -137,10 +188,17 @@ document.getElementById("diagnoseBtn").addEventListener("click", async () => {
     renderRecommendation(data.recommendation, data.pls_results, data.diagnosis);
     renderFollowup(data.followup_case);
   } catch (e) {
-    alert("오류: " + e.message);
+    if (e.name === "AbortError") {
+      setErrorBanner(`요청이 ${REQUEST_TIMEOUT_MS / 1000}초 넘게 응답하지 않아 취소했습니다. 네트워크 상태를 확인하고 다시 시도해주세요.`);
+    } else if (e instanceof TypeError) {
+      setErrorBanner("네트워크 오류로 요청을 보내지 못했습니다. 연결 상태를 확인해주세요.");
+    } else {
+      setErrorBanner(e.message);
+    }
   } finally {
-    spinner.textContent = "";
-    document.getElementById("diagnoseBtn").disabled = false;
+    clearTimeout(slowHintTimer);
+    clearTimeout(abortTimer);
+    setLoading(false);
   }
 });
 

@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import db, followup
-from app.classifier import classify_image
 from app.explain import generate_explanation
+from app.model_client import ModelEndpointError, ModelEndpointTimeout, classify_image
 from app.pls import check_pls_for_products
 
 app = FastAPI(title="AgriSage API", version="0.1.0")
@@ -29,6 +29,20 @@ def _crop_disease_name(class_name: str) -> tuple[str, str]:
     return CROP_KO.get(crop_en, crop_en), "건강 (병징 없음)"
 
 
+def _classify_or_raise(image_bytes: bytes, top_k: int = 3):
+    try:
+        return classify_image(image_bytes, top_k=top_k)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="모델이 아직 학습되지 않았습니다. backend/model/train.py를 먼저 실행하세요.",
+        )
+    except ModelEndpointTimeout as e:
+        raise HTTPException(status_code=504, detail=str(e))
+    except ModelEndpointError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
@@ -38,13 +52,7 @@ def health():
 async def diagnose(image: UploadFile = File(...)):
     """FR-1: 이미지 진단. 상위 top-3 클래스와 confidence를 반환한다."""
     image_bytes = await image.read()
-    try:
-        predictions = classify_image(image_bytes, top_k=3)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=503,
-            detail="모델이 아직 학습되지 않았습니다. backend/model/train.py를 먼저 실행하세요.",
-        )
+    predictions = _classify_or_raise(image_bytes, top_k=3)
     top = predictions[0]
     crop, disease_name = _crop_disease_name(top["class_name"])
     return {
@@ -67,13 +75,7 @@ async def full_pipeline(
 ):
     """FR-1~FR-4를 한 번에 수행하는 통합 파이프라인 (User Flow 재현)."""
     image_bytes = await image.read()
-    try:
-        predictions = classify_image(image_bytes, top_k=3)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=503,
-            detail="모델이 아직 학습되지 않았습니다. backend/model/train.py를 먼저 실행하세요.",
-        )
+    predictions = _classify_or_raise(image_bytes, top_k=3)
 
     top = predictions[0]
     class_name = top["class_name"]
@@ -142,7 +144,17 @@ def pls_check(
 async def followup_check(case_id: str, image: UploadFile = File(...)):
     """FR-5: 사후 확인 - 재사진 업로드 시 개선 여부 판단."""
     image_bytes = await image.read()
-    case = followup.submit_followup_photo(case_id, image_bytes)
+    try:
+        case = followup.submit_followup_photo(case_id, image_bytes)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="모델이 아직 학습되지 않았습니다. backend/model/train.py를 먼저 실행하세요.",
+        )
+    except ModelEndpointTimeout as e:
+        raise HTTPException(status_code=504, detail=str(e))
+    except ModelEndpointError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     if case is None:
         raise HTTPException(status_code=404, detail="존재하지 않는 case_id입니다.")
     return case

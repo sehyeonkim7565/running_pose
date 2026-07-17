@@ -6,4 +6,4 @@ pillow
 torch
 torchvision
 psycopg2-binary
-google-cloud-aiplatform
+requests

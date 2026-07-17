@@ -6,8 +6,8 @@ DATABASE_URL이 설정되면 Postgres(followup_cases 테이블)에 영속 저장
 import uuid
 from datetime import date, timedelta
 
-from app.classifier import classify_image
 from app.db import DATABASE_URL, is_healthy
+from app.model_client import classify_image
 
 if DATABASE_URL:
     import json
