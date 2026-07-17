@@ -17,19 +17,19 @@ def check_pls(product: dict, expected_harvest_date: str, spray_date: str | None 
 
     if days_until_harvest < 0:
         status = "invalid"
-        message = "수확 예정일이 살포일보다 이전입니다. 날짜를 다시 확인해주세요."
+        message = "The expected harvest date is before the spray date. Please double-check the dates."
     elif days_until_harvest < phi:
         status = "violation"
         message = (
-            f"경고: '{product['product_name']}'의 안전사용기간은 {phi}일이지만, "
-            f"살포일로부터 수확 예정일까지 {days_until_harvest}일밖에 남지 않았습니다. "
-            f"잔류허용기준 초과 위험이 있어 이 제품 사용을 권장하지 않습니다."
+            f"Warning: '{product['product_name']}' has a pre-harvest interval (PHI) of {phi} days, but "
+            f"only {days_until_harvest} day(s) remain between the spray date and the expected harvest date. "
+            f"This risks exceeding the maximum residue limit, so this product is not recommended."
         )
     else:
         status = "safe"
         message = (
-            f"안전: 살포일로부터 수확 예정일까지 {days_until_harvest}일이 남아 "
-            f"안전사용기간({phi}일)을 충족합니다."
+            f"Safe: {days_until_harvest} day(s) remain between the spray date and the expected harvest "
+            f"date, which meets the pre-harvest interval ({phi} days)."
         )
 
     return {

@@ -3,8 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import db, followup
-from app.classifier import classify_image
 from app.explain import generate_explanation
+from app.model_client import ModelEndpointError, ModelEndpointTimeout, classify_image
 from app.pls import check_pls_for_products
 
 app = FastAPI(title="AgriSage API", version="0.1.0")
@@ -17,16 +17,27 @@ app.add_middleware(
 )
 
 
-CROP_KO = {"Apple": "사과", "Potato": "감자", "Tomato": "토마토"}
-
-
 def _crop_disease_name(class_name: str) -> tuple[str, str]:
     info = db.get_disease_info(class_name)
     if info:
         return info["crop"], info["disease_name"]
     # healthy label: "Crop___healthy"
     crop_en = class_name.split("___")[0]
-    return CROP_KO.get(crop_en, crop_en), "건강 (병징 없음)"
+    return crop_en, "Healthy (No Disease)"
+
+
+def _classify_or_raise(image_bytes: bytes, top_k: int = 3):
+    try:
+        return classify_image(image_bytes, top_k=top_k)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="The model hasn't been trained yet. Run backend/model/train.py first.",
+        )
+    except ModelEndpointTimeout as e:
+        raise HTTPException(status_code=504, detail=str(e))
+    except ModelEndpointError as e:
+        raise HTTPException(status_code=502, detail=str(e))
 
 
 @app.get("/api/health")
@@ -36,15 +47,9 @@ def health():
 
 @app.post("/api/diagnose")
 async def diagnose(image: UploadFile = File(...)):
-    """FR-1: 이미지 진단. 상위 top-3 클래스와 confidence를 반환한다."""
+    """FR-1: Image diagnosis. Returns the top-3 predicted classes with confidence."""
     image_bytes = await image.read()
-    try:
-        predictions = classify_image(image_bytes, top_k=3)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=503,
-            detail="모델이 아직 학습되지 않았습니다. backend/model/train.py를 먼저 실행하세요.",
-        )
+    predictions = _classify_or_raise(image_bytes, top_k=3)
     top = predictions[0]
     crop, disease_name = _crop_disease_name(top["class_name"])
     return {
@@ -65,15 +70,9 @@ async def full_pipeline(
     expected_harvest_date: str | None = Form(None),
     organic_only: bool = Form(False),
 ):
-    """FR-1~FR-4를 한 번에 수행하는 통합 파이프라인 (User Flow 재현)."""
+    """Runs FR-1 through FR-4 in one call (reproduces the full user flow)."""
     image_bytes = await image.read()
-    try:
-        predictions = classify_image(image_bytes, top_k=3)
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=503,
-            detail="모델이 아직 학습되지 않았습니다. backend/model/train.py를 먼저 실행하세요.",
-        )
+    predictions = _classify_or_raise(image_bytes, top_k=3)
 
     top = predictions[0]
     class_name = top["class_name"]
@@ -81,7 +80,7 @@ async def full_pipeline(
     crop, disease_name = _crop_disease_name(class_name)
     healthy = db.is_healthy(class_name)
 
-    explanation = generate_explanation(crop, disease_name, confidence, healthy)
+    explanation = generate_explanation(crop, disease_name, confidence, healthy, organic_only=organic_only)
 
     recommendation = None
     pls_results = None
@@ -117,10 +116,10 @@ async def full_pipeline(
 
 @app.post("/api/recommend")
 def recommend(class_name: str = Form(...), organic_only: bool = Form(False)):
-    """FR-3: 맞춤형 방제 추천."""
+    """FR-3: Personalized pesticide recommendation."""
     rec = db.recommend_products(class_name, organic_only=organic_only)
     if rec is None:
-        raise HTTPException(status_code=404, detail="해당 클래스에 대한 추천 데이터가 없습니다.")
+        raise HTTPException(status_code=404, detail="No recommendation data for this class.")
     return rec
 
 
@@ -130,21 +129,31 @@ def pls_check(
     expected_harvest_date: str = Form(...),
     organic_only: bool = Form(False),
 ):
-    """FR-4: 안전기준(PLS) 자동 체크."""
+    """FR-4: Automated PLS (Pre-Harvest Interval) safety compliance check."""
     rec = db.recommend_products(class_name, organic_only=organic_only)
     if rec is None:
-        raise HTTPException(status_code=404, detail="해당 클래스에 대한 추천 데이터가 없습니다.")
+        raise HTTPException(status_code=404, detail="No recommendation data for this class.")
     results = check_pls_for_products(rec["products"], expected_harvest_date)
     return {"crop": rec["crop"], "disease_name": rec["disease_name"], "products": results}
 
 
 @app.post("/api/followup/{case_id}")
 async def followup_check(case_id: str, image: UploadFile = File(...)):
-    """FR-5: 사후 확인 - 재사진 업로드 시 개선 여부 판단."""
+    """FR-5: Follow-up check - assess improvement from a re-submitted photo."""
     image_bytes = await image.read()
-    case = followup.submit_followup_photo(case_id, image_bytes)
+    try:
+        case = followup.submit_followup_photo(case_id, image_bytes)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=503,
+            detail="The model hasn't been trained yet. Run backend/model/train.py first.",
+        )
+    except ModelEndpointTimeout as e:
+        raise HTTPException(status_code=504, detail=str(e))
+    except ModelEndpointError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     if case is None:
-        raise HTTPException(status_code=404, detail="존재하지 않는 case_id입니다.")
+        raise HTTPException(status_code=404, detail="No case found with this case_id.")
     return case
 
 
@@ -152,7 +161,7 @@ async def followup_check(case_id: str, image: UploadFile = File(...)):
 def followup_get(case_id: str):
     case = followup.get_case(case_id)
     if case is None:
-        raise HTTPException(status_code=404, detail="존재하지 않는 case_id입니다.")
+        raise HTTPException(status_code=404, detail="No case found with this case_id.")
     return case
 
 
