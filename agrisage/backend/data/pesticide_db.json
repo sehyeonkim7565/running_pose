@@ -1,134 +1,134 @@
 {
-  "_note": "데모용 질병-농약 매핑 DB. 실제 서비스 배포 전 농촌진흥청 농약안전정보시스템 등록 데이터로 교체/검증 필요. PHI(안전사용기간) 단위: 일(days).",
+  "_note": "Demo disease-pesticide mapping DB. Must be replaced/validated against official agricultural registry data before production use. PHI (Pre-Harvest Interval) unit: days.",
   "diseases": {
     "Apple___Apple_scab": {
-      "crop": "사과",
+      "crop": "Apple",
       "crop_en": "Apple",
-      "disease_name": "사과 검은별무늬병 (Apple Scab)",
+      "disease_name": "Apple Scab",
       "pathogen_type": "fungal",
       "products": [
         {
-          "product_name": "만코지수화제",
+          "product_name": "Mancozeb WP",
           "active_ingredient": "Mancozeb",
           "phi_days": 14,
           "organic_allowed": false,
-          "notes": "개화 전후 예방 살포 효과적"
+          "notes": "Effective as a preventive spray before and after bloom"
         },
         {
-          "product_name": "캡탄수화제",
+          "product_name": "Captan WP",
           "active_ingredient": "Captan",
           "phi_days": 7,
           "organic_allowed": false,
-          "notes": "표준 방제 간격 7~10일"
+          "notes": "Standard treatment interval: 7-10 days"
         },
         {
-          "product_name": "석회유황합제",
+          "product_name": "Lime Sulfur",
           "active_ingredient": "Lime Sulfur",
           "phi_days": 3,
           "organic_allowed": true,
-          "notes": "유기농 인증 재배지 사용 가능, 발아 전 살포 권장"
+          "notes": "Allowed on organic-certified farms; recommended before bud break"
         }
       ]
     },
     "Potato___Early_blight": {
-      "crop": "감자",
+      "crop": "Potato",
       "crop_en": "Potato",
-      "disease_name": "감자 겹둥근무늬병 (Early Blight)",
+      "disease_name": "Early Blight",
       "pathogen_type": "fungal",
       "products": [
         {
-          "product_name": "클로로탈로닐수화제",
+          "product_name": "Chlorothalonil WP",
           "active_ingredient": "Chlorothalonil",
           "phi_days": 7,
           "organic_allowed": false,
-          "notes": "예방 위주 정기 살포"
+          "notes": "Primarily preventive; apply on a regular schedule"
         },
         {
-          "product_name": "아족시스트로빈액상수화제",
+          "product_name": "Azoxystrobin SC",
           "active_ingredient": "Azoxystrobin",
           "phi_days": 14,
           "organic_allowed": false,
-          "notes": "치료 및 예방 겸용"
+          "notes": "Works as both curative and preventive treatment"
         },
         {
-          "product_name": "님오일유제",
+          "product_name": "Neem Oil EC",
           "active_ingredient": "Neem Oil",
           "phi_days": 1,
           "organic_allowed": true,
-          "notes": "유기농 대체 옵션, 효과는 화학 농약보다 낮음"
+          "notes": "Organic alternative; less effective than chemical fungicides"
         }
       ]
     },
     "Potato___Late_blight": {
-      "crop": "감자",
+      "crop": "Potato",
       "crop_en": "Potato",
-      "disease_name": "감자 역병 (Late Blight)",
+      "disease_name": "Late Blight",
       "pathogen_type": "oomycete",
       "products": [
         {
-          "product_name": "메탈락실엠수화제",
+          "product_name": "Metalaxyl-M WP",
           "active_ingredient": "Metalaxyl-M",
           "phi_days": 7,
           "organic_allowed": false,
-          "notes": "확산이 빠른 병이므로 조기 방제 필수"
+          "notes": "Spreads quickly, so early treatment is essential"
         },
         {
-          "product_name": "만코지수화제",
+          "product_name": "Mancozeb WP",
           "active_ingredient": "Mancozeb",
           "phi_days": 14,
           "organic_allowed": false,
-          "notes": "예방 목적, 강우 전후 살포 권장"
+          "notes": "Preventive purpose; recommended before and after rainfall"
         },
         {
-          "product_name": "구리수화제(보르도액)",
+          "product_name": "Copper Hydroxide (Bordeaux Mixture)",
           "active_ingredient": "Copper Hydroxide",
           "phi_days": 3,
           "organic_allowed": true,
-          "notes": "유기농 인증 재배지 사용 가능"
+          "notes": "Allowed on organic-certified farms"
         }
       ]
     },
     "Tomato___Bacterial_spot": {
-      "crop": "토마토",
+      "crop": "Tomato",
       "crop_en": "Tomato",
-      "disease_name": "토마토 세균점무늬병 (Bacterial Spot)",
+      "disease_name": "Bacterial Spot",
       "pathogen_type": "bacterial",
       "products": [
         {
-          "product_name": "구리수화제(보르도액)",
+          "product_name": "Copper Hydroxide (Bordeaux Mixture)",
           "active_ingredient": "Copper Hydroxide",
           "phi_days": 3,
           "organic_allowed": true,
-          "notes": "세균성 병해에 우선 고려, 저항성 발달 주의"
+          "notes": "First choice for bacterial diseases; watch for resistance development"
         },
         {
-          "product_name": "스트렙토마이신황산염수화제",
+          "product_name": "Streptomycin Sulfate WP",
           "active_ingredient": "Streptomycin Sulfate",
           "phi_days": 5,
           "organic_allowed": false,
-          "notes": "항생제 계열, 연용 시 저항성 유의"
+          "notes": "Antibiotic class; watch for resistance with repeated use"
         }
       ]
     },
     "Tomato___Late_blight": {
-      "crop": "토마토",
+      "crop": "Tomato",
       "crop_en": "Tomato",
-      "disease_name": "토마토 역병 (Late Blight)",
+      "disease_name": "Late Blight",
       "pathogen_type": "oomycete",
       "products": [
         {
-          "product_name": "메탈락실엠수화제",
+          "product_name": "Metalaxyl-M WP",
           "active_ingredient": "Metalaxyl-M",
           "phi_days": 7,
           "organic_allowed": false,
-          "notes": "확산 속도가 빨라 조기 발견 시 즉시 방제 필요"
+          "notes": "Spreads fast; treat immediately upon early detection"
         },
         {
-          "product_name": "구리수화제(보르도액)",
+          "product_name": "Copper Hydroxide (Bordeaux Mixture)",
           "active_ingredient": "Copper Hydroxide",
           "phi_days": 3,
           "organic_allowed": true,
-          "notes": "유기농 대체 옵션"
+          "notes": "Organic alternative option"
         }
       ]
     }

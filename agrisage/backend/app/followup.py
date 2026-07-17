@@ -78,13 +78,13 @@ if DATABASE_URL:
 
                 if is_healthy(top["class_name"]):
                     verdict = "improved"
-                    message = "재사진 분석 결과 건강한 상태로 확인되었습니다. 방제가 효과가 있었습니다."
+                    message = "The re-check photo shows a healthy plant. The treatment was effective."
                 elif top["class_name"] == row["original_class"]:
                     verdict = "not_improved"
-                    message = "재사진에서도 동일한 병징이 남아 있습니다. 재방제 또는 원인 재진단이 필요합니다."
+                    message = "The same symptoms are still present in the re-check photo. Re-treatment or a new diagnosis is recommended."
                 else:
                     verdict = "changed"
-                    message = f"이전과 다른 소견({top['class_name']})이 감지되었습니다. 재진단을 권장합니다."
+                    message = f"A different finding ({top['class_name']}) was detected. A new diagnosis is recommended."
 
                 cur.execute(
                     """

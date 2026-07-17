@@ -1,8 +1,9 @@
-"""FR-2: 진단 결과 설명 생성.
+"""FR-2: Diagnosis explanation generation.
 
-확정된 분류 결과(작물명, 질병명)만 LLM에 전달하고, LLM은 새로운 진단을 내리지
-않는다. ANTHROPIC_API_KEY가 설정되어 있으면 Claude API를 호출하고, 없으면
-템플릿 기반 설명으로 폴백한다 (오프라인/키 없이도 로컬 테스트 가능).
+Only the already-confirmed classification result (crop, disease name) is passed
+to the LLM; the LLM never makes a new diagnosis. If ANTHROPIC_API_KEY is set,
+Claude API is called; otherwise this falls back to a template-based explanation
+(works fully offline / without an API key for local testing).
 """
 import json
 import os
@@ -19,24 +20,28 @@ def _get_client():
 
 
 SYSTEM_PROMPT = (
-    "당신은 AgriSage의 농업 설명 도우미입니다. 이미 확정된 이미지 분류 결과"
-    "(작물명, 질병명)를 근거로만 설명을 작성하세요. 스스로 새로운 진단을 내리거나"
-    "분류 결과를 바꾸지 마세요. 초보 재배자가 이해할 수 있는 쉬운 말로 작성하고,"
-    "반드시 JSON으로만 응답하세요. 키: diagnosis_summary, symptoms, causes, "
-    "recommended_actions(배열)."
+    "You are AgriSage's farming explanation assistant. Base your explanation only on "
+    "the already-confirmed image classification result (crop, disease name) provided to "
+    "you. Never make a new diagnosis or change the classification result yourself. Write "
+    "in plain language a beginner grower can understand, and respond with JSON only. "
+    "Keys: greeting, disease_title, disease_explanation, cause, recommended_products, "
+    "reasoning, spray_interval, severity, severity_note, other_precautions."
 )
 
 
-def generate_explanation(crop: str, disease_name: str, confidence: float, is_healthy: bool):
+def generate_explanation(
+    crop: str, disease_name: str, confidence: float, is_healthy: bool, organic_only: bool = False
+):
     client = _get_client()
     if client is None:
-        return _template_explanation(crop, disease_name, confidence, is_healthy)
+        return _template_explanation(crop, disease_name, confidence, is_healthy, organic_only)
 
     user_prompt = (
-        f"작물: {crop}\n질병명: {disease_name}\n분류 신뢰도: {confidence:.1%}\n"
-        f"건강 여부: {'건강함' if is_healthy else '병징 있음'}\n"
-        "위 확정된 분류 결과만을 근거로 진단 결과 요약, 병의 특징, 발생 원인, "
-        "추천 대응법을 JSON으로 작성해줘."
+        f"Crop: {crop}\nDisease name: {disease_name}\nClassification confidence: {confidence:.1%}\n"
+        f"Healthy: {'yes' if is_healthy else 'no'}\nOrganic-only filter: {'yes' if organic_only else 'no'}\n"
+        "Based only on the confirmed classification result above, write a greeting, disease "
+        "explanation, cause, recommended products with reasoning, spray interval, and safety "
+        "precautions (severity + other precautions) as JSON."
     )
     try:
         resp = client.messages.create(
@@ -51,31 +56,91 @@ def generate_explanation(crop: str, disease_name: str, confidence: float, is_hea
         data["source"] = "llm"
         return data
     except Exception as e:
-        fallback = _template_explanation(crop, disease_name, confidence, is_healthy)
+        fallback = _template_explanation(crop, disease_name, confidence, is_healthy, organic_only)
         fallback["llm_error"] = str(e)
         return fallback
 
 
-def _template_explanation(crop: str, disease_name: str, confidence: float, is_healthy: bool):
+def _template_explanation(
+    crop: str, disease_name: str, confidence: float, is_healthy: bool, organic_only: bool = False
+):
     if is_healthy:
         return {
-            "diagnosis_summary": f"{crop} 잎은 병징 없이 건강한 상태로 분류되었습니다 (신뢰도 {confidence:.0%}).",
-            "symptoms": "뚜렷한 병반, 변색, 반점이 관찰되지 않았습니다.",
-            "causes": "특별한 이상 원인이 발견되지 않았습니다.",
-            "recommended_actions": [
-                "현재 재배 관리(관수, 시비, 통풍)를 유지하세요.",
-                "주기적으로 잎 상태를 재확인해 초기 이상 징후를 놓치지 마세요.",
-            ],
+            "greeting": "Welcome to farming! Here is the explanation of your diagnosis and the steps you should take.",
+            "disease_title": "Healthy",
+            "disease_explanation": (
+                f"Your {crop.lower()} leaves were classified as healthy, with no visible disease "
+                f"symptoms (confidence {confidence:.0%})."
+            ),
+            "cause": "No abnormal cause was found.",
+            "recommended_products": "No treatment is needed at this time.",
+            "reasoning": "The plant shows no signs of infection, so no pesticide application is recommended.",
+            "spray_interval": "Not applicable.",
+            "severity": "None",
+            "severity_note": "Keep up your current care routine (watering, fertilizing, airflow).",
+            "other_precautions": "Recheck your leaves periodically so you catch early signs of trouble.",
             "source": "template",
         }
+
+    # Curated demo content: Potato Late Blight + organic-only filter.
+    if crop == "Potato" and disease_name == "Late Blight" and organic_only:
+        return {
+            "greeting": (
+                "Welcome to farming! Here is the explanation of your diagnosis and the steps "
+                "you should take to protect your potato crop."
+            ),
+            "disease_title": "Late Blight",
+            "disease_explanation": (
+                'Your potatoes are affected by Late Blight. In simple terms, this disease causes dark '
+                'brown spots on the leaves that look "water-soaked," as if the tissue is rotting from '
+                "moisture. A key sign to look for is a white, fuzzy mold-like growth forming a border "
+                "on the underside of those infected leaves."
+            ),
+            "cause": (
+                "This disease is caused by a pathogen that spreads very rapidly during cool and humid "
+                "(damp) weather. These conditions allow the fungus-like organism to multiply and jump "
+                "from plant to plant quickly."
+            ),
+            "recommended_products": "Copper-based fungicides (such as Bordeaux mixture) and other organic-certified materials.",
+            "reasoning": (
+                "Because you are maintaining an organic certification for self-consumption, we have "
+                "selected only naturally-derived options. Chemical fungicides (like dimethomorph) have "
+                "been excluded because they are not allowed under organic standards."
+            ),
+            "spray_interval": (
+                "You must apply the treatment every 5 to 7 days. Because the disease spreads so fast, "
+                "staying consistent with this schedule is vital to saving your crop."
+            ),
+            "severity": "Very high",
+            "severity_note": (
+                "You should prioritize treatment immediately to prevent the total loss of your plants."
+            ),
+            "other_precautions": (
+                "Specific chemical handling precautions are not available. Always follow the "
+                "instructions on the specific product label you purchase."
+            ),
+            "source": "template",
+        }
+
     return {
-        "diagnosis_summary": f"{crop}에서 '{disease_name}'(으)로 분류되었습니다 (신뢰도 {confidence:.0%}).",
-        "symptoms": "잎에 반점, 변색, 부패 등의 병징이 관찰될 수 있습니다. 정확한 병징은 추천 제품 및 방제 정보를 참고하세요.",
-        "causes": "과습, 통풍 불량, 병원균/세균 전파 등이 주요 원인으로 알려져 있습니다.",
-        "recommended_actions": [
-            "감염된 잎과 잔재물을 제거해 확산을 막으세요.",
-            "추천 방제 제품과 안전사용기간(PLS)을 확인한 뒤 살포하세요.",
-            "방제 후 3~5일 뒤 재사진으로 개선 여부를 확인하세요.",
-        ],
+        "greeting": "Welcome to farming! Here is the explanation of your diagnosis and the steps you should take.",
+        "disease_title": disease_name,
+        "disease_explanation": (
+            f"Your {crop.lower()} was classified with '{disease_name}' (confidence {confidence:.0%})."
+        ),
+        "cause": "Excess moisture, poor airflow, and pathogen/bacterial spread are the most common causes.",
+        "recommended_products": "See the recommended products and PHI (safe-use period) table below.",
+        "reasoning": (
+            "Products were filtered to organic-certified options only."
+            if organic_only
+            else "Both conventional and organic-certified options are shown; pick based on your certification needs."
+        ),
+        "spray_interval": "Follow the product label's recommended spray interval.",
+        "severity": "Moderate to high",
+        "severity_note": "Remove infected leaves and debris to slow the spread, then treat promptly.",
+        "other_precautions": (
+            "Check the recommended products' PHI (pre-harvest interval) before spraying, and "
+            "re-check the plant 3-5 days after treatment."
+        ),
         "source": "template",
     }
